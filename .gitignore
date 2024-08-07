@@ -1,2 +1,6 @@
 recipe/
 tags/
+
+# Added by cargo
+
+/target
