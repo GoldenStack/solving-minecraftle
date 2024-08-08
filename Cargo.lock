@@ -54,15 +54,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "recipe-set-cover"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "itertools",
- "serde_json",
-]
-
-[[package]]
 name = "ryu"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -98,6 +89,15 @@ dependencies = [
  "memchr",
  "ryu",
  "serde",
+]
+
+[[package]]
+name = "solving-minecraftle"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "itertools",
+ "serde_json",
 ]
 
 [[package]]
