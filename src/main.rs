@@ -50,6 +50,7 @@ fn main() {
 
     let recipes = paths
         .map(read_recipe)
+        .map(parse_recipe)
         .filter(Option::is_some)
         .map(Option::unwrap)
         .collect::<Vec<_>>();
@@ -110,14 +111,16 @@ fn main() {
      
 }
 
-fn read_recipe(input: Result<DirEntry, std::io::Error>) -> Option<(String, Recipe)> {
+fn read_recipe(input: Result<DirEntry, std::io::Error>) -> Value {
     let filename = input.unwrap().file_name();
     let name = filename.to_str().unwrap();
 
     let recipe = read_to_string(format!("{RECIPE_PATH}/{name}")).unwrap();
     
-    let json = serde_json::from_str::<Value>(&recipe).unwrap();
+    serde_json::from_str::<Value>(&recipe).unwrap()
+}
 
+fn parse_recipe(json: Value) -> Option<(String, Recipe)> {
     let recipe = match json.get("type").unwrap() {
         Value::String(s) if s == "minecraft:crafting_shaped" => {
             let key = json.get("key").unwrap()
@@ -203,11 +206,7 @@ fn filter_ingredients(ingredients: Vec<Ingredient>, filter: &Vec<&str>) -> Optio
     let applied = ingredients.into_iter()
         .map(|items| items.into_iter().filter(|item| filter.contains(&&**item)).collect_vec()).collect_vec();
 
-    if applied.iter().any(Vec::is_empty) {
-        return None;
-    }
-
-    Some(applied)
+    Some(applied).filter(|v| !v.iter().any(Vec::is_empty))
 }
 
 fn iter_shapeless<'a>(ingredients: &'a Vec<Ingredient>) -> Vec<Craft<'a>> {
