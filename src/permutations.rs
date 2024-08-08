@@ -74,7 +74,7 @@ fn permutations_shaped_for<'a>(grid: &'a Vec<Vec<Ingredient>>, (ox, oy): (usize,
         crafts.push(craft);
     }
 
-    crafts
+    crafts.into_iter().unique().collect_vec()
 }
 
 fn grid_size(grid: &Vec<Vec<Ingredient>>) -> (usize, usize) {
