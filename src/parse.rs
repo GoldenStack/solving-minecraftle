@@ -1,10 +1,10 @@
-use std::{collections::HashMap, fs::{read_dir, read_to_string, DirEntry}, io, path::PathBuf, str::FromStr};
+use std::{collections::HashMap, fs::{read_dir, read_to_string, DirEntry}, io, path::PathBuf, str::FromStr, vec};
 
 use anyhow::{anyhow, Context, Result};
 use itertools::Itertools;
 use serde_json::Value;
 
-use crate::{Ingredient, Recipe, DEFAULT_ITEM, TAG_DIRECTORY};
+use crate::{Ingredient, Material, Recipe, TAG_DIRECTORY};
 
 pub fn list_dir(path: &str) -> Result<Vec<PathBuf>> {
     let dir = read_dir(path)
@@ -34,25 +34,6 @@ pub fn filter_recipe(json: &Value) -> bool {
     category == "minecraft:crafting_shaped" || category == "minecraft:crafting_shapeless"
 }
 
-/// Filters a recipe by the list of valid ingredients.
-pub fn filter_ingredients(recipe: Recipe, filter: &[&str]) -> Option<Recipe> {
-    fn filter_ingredient(ingredient: Ingredient, filter: &[&str]) -> Option<Ingredient> {
-        Some(ingredient.into_iter().filter(|i| filter.contains(&&**i)).collect_vec()).filter(|vec| !vec.is_empty())
-    }
-
-    fn handle_list(ingredients: Vec<Ingredient>, filter: &[&str]) -> Option<Vec<Ingredient>> {
-        ingredients.into_iter()
-            .map(|i| filter_ingredient(i, filter))
-            .collect::<Option<Vec<_>>>()
-    }
-
-    match recipe {
-        Recipe::Shaped(grid) => grid.into_iter()
-            .map(|i| handle_list(i, filter)).collect::<Option<_>>().map(Recipe::Shaped),
-        Recipe::Shapeless(list) => handle_list(list, filter).map(Recipe::Shapeless),
-    }
-}
-
 /// Tries to parse a recipe from the provided JSON.
 pub fn parse_recipe(json: Value) -> Result<(String, Recipe)> {
     let Some(Value::String(category)) = json.get("type") else {
@@ -75,7 +56,7 @@ pub fn parse_recipe(json: Value) -> Result<(String, Recipe)> {
         
         pattern.iter()
             .map(|line| parse_line(line, &key))
-            .collect::<Result<_, _>>()
+            .collect::<Result<Vec<Vec<Ingredient>>>>()
             .with_context(|| "while parsing pattern line")
             .map(Recipe::Shaped)
     }
@@ -87,7 +68,7 @@ pub fn parse_recipe(json: Value) -> Result<(String, Recipe)> {
 
         array.iter()
             .map(parse_ingredient)
-            .collect::<Result<_, _>>()
+            .collect::<Result<Vec<Ingredient>>>()
             .with_context(|| "while parsing shapeless recipe")
             .map(Recipe::Shapeless)
     }
@@ -113,7 +94,7 @@ fn parse_line(line: &Value, key: &HashMap<&String, Ingredient>) -> Result<Vec<In
 
     line.chars().map(|c| {
         if c == ' ' {
-            Ok(vec![DEFAULT_ITEM.to_owned()])
+            Ok(vec![Material::default()])
         } else {
             key.get(&c.to_string()).ok_or_else(|| anyhow!("unknown item type {}", c)).cloned()
         }
@@ -134,7 +115,13 @@ fn parse_ingredient(value: &Value) -> Result<Ingredient> {
         };
 
         match key.as_ref() {
-            "item" => Ok(vec![str.to_owned()]),
+            "item" => Ok(
+                if let Some(material) = material_from_str(str) {
+                    vec![material]
+                } else {
+                    vec![]
+                }
+            ),
             "tag" => parse_tag(str)
                 .with_context(|| format!("while parsing ingredient {:?}", value)),
             t => Err(anyhow!("invalid ingredient type {}", t)),
@@ -186,9 +173,37 @@ fn parse_tag(name: &str) -> Result<Ingredient> {
                 .with_context(|| format!("while parsing tag '{name}'"))?;
             result.append(&mut parsed);
         } else {
-            result.push(string.to_owned());
+            if let Some(material) = material_from_str(string) {
+                result.push(material);
+            }
         }
     }
 
     Ok(result)
+}
+
+/// Converts a string to a material.
+pub fn material_from_str(str: &str) -> Option<Material> {
+    Some(match str {
+        "minecraft:air" => Material::Air,
+        "minecraft:oak_planks" => Material::Planks,
+        "minecraft:cobblestone" => Material::Cobblestone,
+        "minecraft:stone" => Material::Stone,
+        "minecraft:glass" => Material::Glass,
+        "minecraft:white_wool" => Material::Wool,
+        "minecraft:stick" => Material::Stick,
+        "minecraft:coal" => Material::Coal,
+        "minecraft:diamond" => Material::Diamond,
+        "minecraft:gold_ingot" => Material::GoldIngot,
+        "minecraft:iron_ingot" => Material::IronIngot,
+        "minecraft:redstone" => Material::Redstone,
+        "minecraft:quartz" => Material::Quartz,
+        "minecraft:oak_slab" => Material::Slab,
+        "minecraft:oak_log" => Material::Log,
+        "minecraft:iron_nugget" => Material::IronNugget,
+        "minecraft:redstone_torch" => Material::RedstoneTorch,
+        "minecraft:string" => Material::String,
+        "minecraft:leather" => Material::Leather,
+        _ => return None,
+    })
 }

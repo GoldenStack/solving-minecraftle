@@ -1,7 +1,7 @@
 use itertools::Itertools;
 use std::iter::zip;
 
-use crate::{Craft, Ingredient, Recipe, DEFAULT_ITEM};
+use crate::{Craft, Ingredient, Material, Recipe};
 
 pub fn permutations_guess<'a>(recipe: &'a Recipe) -> Vec<Craft<'a>> {
     match recipe {
@@ -42,9 +42,9 @@ fn permutations_shapeless<'a>(ingredients: &'a Vec<Ingredient>) -> Vec<Craft<'a>
 
     // Map them to a craft
     combinations.map(|(l, r)| {
-        let mut craft: [&str; 9] = [DEFAULT_ITEM; 9];
+        let mut craft: [Material; 9] = [Material::default(); 9];
         for (l, r) in zip(l, r) {
-            craft[r] = l;
+            craft[r] = *l;
         }
         craft
     }).unique().collect()
@@ -65,10 +65,10 @@ fn permutations_shaped_for<'a>(grid: &'a Vec<Vec<Ingredient>>, (ox, oy): (usize,
     let (width, height) = grid_size(grid);
 
     for ingredients in grid.iter().flatten().multi_cartesian_product() {
-        let mut craft: [&str; 9] = [DEFAULT_ITEM; 9];
+        let mut craft = [Material::default(); 9];
 
         for (x, y) in Itertools::cartesian_product(0..width, 0..height) {
-            craft[x + ox + (y + oy) * 3] = ingredients.get(x + y * width).unwrap();
+            craft[x + ox + (y + oy) * 3] = **ingredients.get(x + y * width).unwrap();
         }
 
         crafts.push(craft);
